@@ -1,0 +1,146 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+  AUTHOR
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+  FREEZE
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  firstName       String?   @db.VarChar(52)
+  lastName        String?   @db.VarChar(52)
+  phone           String    @db.VarChar(15)
+  password        String
+  email           String?   @unique @db.VarChar(52)
+  role            Role      @default(USER)
+  status          Status    @default(ACTIVE)
+  lastLogin       DateTime?
+  errorLoginCount Int       @default(0) @db.SmallInt
+  randomToken     String
+  image           String?
+  posts           Post[]
+  orders          Order[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Post {
+  id         Int      @id @default(autoincrement())
+  title      String   @db.VarChar(255)
+  content    String
+  body       String
+  image      String
+  authorId   Int
+  author     User     @relation(fields: [authorId], references: [id])
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id])
+  typeId     Int
+  type       Type     @relation(fields: [typeId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @db.VarChar(52)
+  posts    Post[]
+  products Product[]
+}
+
+model Type {
+  id       Int       @id @default(autoincrement())
+  name     String    @db.VarChar(52)
+  posts    Post[]
+  products Product[]
+}
+
+model Tag {
+  id       Int        @id @default(autoincrement())
+  name     String     @db.VarChar(52)
+  taggable Taggable[]
+}
+
+model Taggable {
+  id    Int    @id @default(autoincrement())
+  tagId Int
+  tag   Tag    @relation(fields: [tagId], references: [id])
+  type  String @db.VarChar(7)
+}
+
+model Product {
+  id          Int              @id @default(autoincrement())
+  name        String           @db.VarChar(255)
+  description String           @db.VarChar(255)
+  price       Decimal          @db.Decimal(10, 2)
+  discount    Decimal          @default(0) @db.Decimal(10, 2)
+  rating      Int              @default(0) @db.SmallInt
+  inventory   Int              @default(0)
+  status      Status           @default(ACTIVE)
+  categoryId  Int
+  category    Category         @relation(fields: [categoryId], references: [id])
+  typeId      Int
+  type        Type             @relation(fields: [typeId], references: [id])
+  images      Image[]
+  orders      ProductOnOrder[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model Image {
+  id        Int     @id @default(autoincrement())
+  path      String  @db.VarChar(255)
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model Order {
+  id         Int              @id @default(autoincrement())
+  userId     Int
+  user       User             @relation(fields: [userId], references: [id])
+  code       String           @db.VarChar(15)
+  totalPrice Decimal          @db.Decimal(10, 2)
+  products   ProductOnOrder[]
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+}
+
+model ProductOnOrder {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int     @db.SmallInt
+  price     Decimal @db.Decimal(10, 2)
+}
+
+model Otp {
+  id            Int      @id @default(autoincrement())
+  phone         String   @db.VarChar(15)
+  otp           String   @db.VarChar(6)
+  rememberToken String
+  verifyToken   String?
+  count         Int      @default(0) @db.SmallInt
+  error         Int      @default(0) @db.SmallInt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
