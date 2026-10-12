@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { body, validationResult } from "express-validator";
 import bcrypt from "bcrypt";
+import moment from "moment";
 
 import {
   createOtp,
@@ -141,8 +142,47 @@ export const verifyOtp = [
       error.errorCode = "Error_Invalid";
       return next(error);
     }
+    const isExpired = moment().diff(otpRow?.updatedAt, "minutes") > 2;
+    if (isExpired) {
+      const error: any = new Error("OTP is expired");
+      error.status = 403;
+      error.errorCode = "Error_Expired";
+      return next(error);
+    }
 
-    res.status(200).json({ message: "verify-otp" });
+    const isMatchOtp = await bcrypt.compare(otp, otpRow!.otp);
+
+    if (!isMatchOtp) {
+      if (!isSameDate) {
+        const otpData = {
+          error: 1,
+        };
+        await updateOtp(otpRow!.id, otpData);
+      } else {
+        const otpData = {
+          error: { increment: 1 },
+        };
+        await updateOtp(otpRow!.id, otpData);
+      }
+      const error: any = new Error("OTP is incorrect");
+      error.status = 401;
+      error.errorCode = "Error_Invalid";
+      return next(error);
+    }
+
+    const verifyToken = generateToken();
+    const otpData = {
+      verifyToken,
+      error: 0,
+      count: 1,
+    };
+    result = await updateOtp(otpRow!.id, otpData);
+
+    return res.status(200).json({
+      message: "OTP is successfully verified",
+      phone: result.phone,
+      token: result.verifyToken,
+    });
   },
 ];
 
