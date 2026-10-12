@@ -1,5 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { body, validationResult } from "express-validator";
+import { getUserByPhone } from "../services/authService.ts";
+import { checkUserExit } from "../utils/auth.ts";
 
 export const register = [
   body("phone", "Invalid phone number")
@@ -16,7 +18,13 @@ export const register = [
       error.errorCode = "Error_Invalid";
       return next(error);
     }
-    res.status(200).json({ message: "register" });
+    let phone = req.body.phone;
+    if (phone.slice(0, 2) == "09") {
+      phone = phone.substring(2, phone.length - 1);
+    }
+    const user = await getUserByPhone(phone);
+    checkUserExit(user);
+    res.status(200).json({ message: "register", phone });
   },
 ];
 
