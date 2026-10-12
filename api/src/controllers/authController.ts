@@ -1,7 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
 import { body, validationResult } from "express-validator";
-import { getUserByPhone } from "../services/authService.ts";
+import { createOtp, getUserByPhone } from "../services/authService.ts";
 import { checkUserExit } from "../utils/auth.ts";
+import { generateOtp, generateToken } from "../utils/generate.ts";
 
 export const register = [
   body("phone", "Invalid phone number")
@@ -24,7 +25,19 @@ export const register = [
     }
     const user = await getUserByPhone(phone);
     checkUserExit(user);
-    res.status(200).json({ message: "register", phone });
+
+    const otp = generateOtp();
+    const token = generateToken();
+
+    const otpData = {
+      phone,
+      otp: String(otp),
+      rememberToken: token,
+      count: 1,
+    };
+    const result = await createOtp(otpData);
+
+    res.status(200).json({ message: `We sent OTP to 09${result.phone}.` });
   },
 ];
 
