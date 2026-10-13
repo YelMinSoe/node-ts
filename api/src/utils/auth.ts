@@ -29,3 +29,12 @@ export const checkOtpRow = (otpRow: any) => {
     throw error;
   }
 };
+
+export const checkUserIfNotExist = (user: any) => {
+  if (!user) {
+    const error: any = new Error("This phone number have not registered");
+    error.status = 401;
+    error.errorCode = "Error_Unthenticated";
+    throw error;
+  }
+};

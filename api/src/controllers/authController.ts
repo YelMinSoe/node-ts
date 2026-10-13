@@ -16,6 +16,7 @@ import {
   checkOtpErrorIfSameDate,
   checkOtpRow,
   checkUserExit,
+  checkUserIfNotExist,
 } from "../utils/auth.ts";
 import { generateOtp, generateToken } from "../utils/generate.ts";
 
@@ -289,9 +290,108 @@ export const confirmPassword = [
       });
   },
 ];
-export const login = async (req: Request, res: Response) => {
-  res.status(200).json({ message: "login" });
-};
+export const login = [
+  body("phone", "Invalid phone number")
+    .trim()
+    .notEmpty()
+    .matches("^[0-9]+$")
+    .isLength({ min: 5, max: 15 }),
+  body("password", "Password must be 8 digits")
+    .trim()
+    .notEmpty()
+    .matches("^[0-9]+$")
+    .isLength({ min: 8, max: 8 }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    const errors = validationResult(req).array({ onlyFirstError: true });
+    if (errors.length > 0) {
+      const error: any = new Error(errors[0].msg);
+      error.status = 400;
+      error.errorCode = "Error_Invalid";
+      return next(error);
+    }
+
+    const password = req.body.password;
+
+    let phone = req.body.phone;
+    if (phone.slice(0, 2) === "09") {
+      phone = phone.substring(2, phone.length);
+    }
+
+    const user = await getUserByPhone(phone);
+    checkUserIfNotExist(user);
+
+    if (user?.status === "FREEZE") {
+      const error: any = new Error(
+        "Your account is temporarily locked.Please contact us",
+      );
+      error.status = 401;
+      error.errorCode = "Error_Freeze";
+      return next(error);
+    }
+    const isMatchPassword = await bcrypt.compare(password, user!.password);
+    if (!isMatchPassword) {
+      const lastRequest = new Date(user!.updatedAt).toLocaleDateString();
+      const isSameDate = lastRequest == new Date().toLocaleDateString();
+      if (!isSameDate) {
+        const userData = {
+          errorLoginCount: 1,
+        };
+        await updateUser(user!.id, userData);
+      } else {
+        if (user!.errorLoginCount >= 2) {
+          const userData = {
+            status: "FREEZE",
+          };
+        } else {
+          const userDate = {
+            errorLoginCount: { increment: 1 },
+          };
+        }
+      }
+      const error: any = new Error("Password is worng");
+      error.status = 401;
+      error.errorCode = "Error_Invalid";
+      return next(error);
+    }
+    const accessTokenPayload = { id: user!.id };
+    const refreshTokenPayload = { id: user!.id, phone: user!.phone };
+    const accessToken = jwt.sign(
+      accessTokenPayload,
+      process.env.ACCESS_TOKEN_SECRET!,
+      { expiresIn: 60 * 15 },
+    );
+    const refreshToken = jwt.sign(
+      refreshTokenPayload,
+      process.env.REFRESH_TOKEN_SECRET!,
+      { expiresIn: "30d" },
+    );
+
+    const userData = {
+      errorLoginCount: 0,
+      randomToken: refreshToken,
+    };
+    await updateUser(user!.id, userData);
+
+    res
+      .cookie("accessToken", accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production" ? true : false,
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+        maxAge: 15 * 60 * 1000,
+      })
+      .cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production" ? true : false,
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      })
+      .status(201)
+      .json({
+        message: "Successfully logged in",
+        userId: user!.id,
+      });
+  },
+];
 
 export const refreshToken = async (req: Request, res: Response) => {
   res.status(200).json({ message: "refresh-token" });
