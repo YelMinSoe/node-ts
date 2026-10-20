@@ -12,8 +12,9 @@ import cookieParser from "cookie-parser";
 import { limiter } from "./middlewares/rateLimiter.ts";
 import healthRoute from "./routes/v1/health.ts";
 import authRoutes from "./routes/v1/auth.ts";
-import userRoutes from "./routes/v1/admin/user.ts";
+import adminRoutes from "./routes/v1/admin/user.ts";
 import { auth } from "./middlewares/auth.ts";
+import { authorise } from "./middlewares/authorise.ts";
 
 export const app = express();
 
@@ -47,7 +48,7 @@ app
 app.use("", healthRoute);
 app.use("/api/v1", authRoutes);
 // Admin Routes
-app.use("/api/v1/admin", auth, userRoutes);
+app.use("/api/v1/admin", auth, authorise(true, "ADMIN"), adminRoutes);
 
 app.use((error: any, req: Request, res: Response, next: NextFunction) => {
   const status = error.status || 500;
