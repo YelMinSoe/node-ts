@@ -17,7 +17,7 @@ import { auth } from "./middlewares/auth.ts";
 
 export const app = express();
 
-const whiteLists = ["http://example.com", "http://example1.com"];
+const whiteLists = ["http://example.com", "http://localhost:5173"];
 var corsOptions = {
   origin: function (
     origin: any,
@@ -38,7 +38,7 @@ app
   .use(morgan("dev"))
   .use(express.urlencoded({ extended: true }))
   .use(express.json())
-  .use(cors())
+  .use(cors(corsOptions))
   .use(helmet())
   .use(compression())
   .use(limiter)

@@ -1,8 +1,10 @@
+import { errorCode } from "../../config/errorCode.ts";
+
 export const checkUserExit = (user: any) => {
   if (user) {
     const error: any = new Error("This phone number has already been existed");
     error.status = 409;
-    error.errorCode = "Error_Already_Exist";
+    error.errorCode = errorCode.userExist;
     throw error;
   }
 };
@@ -16,7 +18,7 @@ export const checkOtpErrorIfSameDate = (
       "OTP is wrong for 5 times.Please try again torrow",
     );
     error.status = 401;
-    error.errorCode = "Error_OverLimit";
+    error.errorCode = errorCode.overLimit;
     throw error;
   }
 };
@@ -25,7 +27,7 @@ export const checkOtpRow = (otpRow: any) => {
   if (!otpRow) {
     const error: any = new Error("Phone number is incorrect");
     error.status = 400;
-    error.errorCode = "Error_Invalid";
+    error.errorCode = errorCode.invalid;
     throw error;
   }
 };

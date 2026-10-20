@@ -20,6 +20,7 @@ import {
   checkUserIfNotExist,
 } from "../utils/auth.ts";
 import { generateOtp, generateToken } from "../utils/generate.ts";
+import { errorCode } from "../../config/errorCode.ts";
 
 export const register = [
   body("phone", "Invalid phone number")
@@ -33,7 +34,7 @@ export const register = [
     if (errors.length > 0) {
       const error: any = new Error(errors[0].msg);
       error.status = 400;
-      error.errorCode = "Error_Invalid";
+      error.errorCode = errorCode.invalid;
       return next(error);
     }
     let phone = req.body.phone;
@@ -81,7 +82,7 @@ export const register = [
             "OTP is allowed to request 3 times per day",
           );
           error.status = 405;
-          error.errorCode = "Error_OverLimit";
+          error.errorCode = errorCode.overLimit;
           throw error;
         } else {
           const otpData = {
@@ -120,7 +121,7 @@ export const verifyOtp = [
     if (errors.length > 0) {
       const error: any = new Error(errors[0].msg);
       error.status = 400;
-      error.errorCode = "Error_Invalid";
+      error.errorCode = errorCode.invalid;
       return next(error);
     }
     const { phone, otp, token } = req.body;
@@ -143,14 +144,14 @@ export const verifyOtp = [
 
       const error: any = new Error("Invalid token");
       error.status = 400;
-      error.errorCode = "Error_Invalid";
+      error.errorCode = errorCode.invalid;
       return next(error);
     }
     const isExpired = moment().diff(otpRow?.updatedAt, "minutes") > 2;
     if (isExpired) {
       const error: any = new Error("OTP is expired");
       error.status = 403;
-      error.errorCode = "Error_Expired";
+      error.errorCode = errorCode.otpExpired;
       return next(error);
     }
 
@@ -170,7 +171,7 @@ export const verifyOtp = [
       }
       const error: any = new Error("OTP is incorrect");
       error.status = 401;
-      error.errorCode = "Error_Invalid";
+      error.errorCode = errorCode.invalid;
       return next(error);
     }
 
@@ -207,7 +208,7 @@ export const confirmPassword = [
     if (errors.length > 0) {
       const error: any = new Error(errors[0].msg);
       error.status = 400;
-      error.errorCode = "Error_Invalid";
+      error.errorCode = errorCode.invalid;
       return next(error);
     }
     const { phone, password, token } = req.body;
@@ -219,7 +220,7 @@ export const confirmPassword = [
     if (otpRow?.error === 5) {
       const error: any = new Error("This request may be attacked");
       error.status = 400;
-      error.errorCode = "Error_BadRequest";
+      error.errorCode = errorCode.attack;
       return next(error);
     }
 
@@ -231,7 +232,7 @@ export const confirmPassword = [
 
       const error: any = new Error("Invalid Token");
       error.status = 400;
-      error.errorCode = "Error_Invalid";
+      error.errorCode = errorCode.invalid;
       return next(error);
     }
 
@@ -239,7 +240,7 @@ export const confirmPassword = [
     if (isExpired) {
       const error: any = new Error("Your request is expired");
       error.status = 403;
-      error.errorCode = "Error_Expired";
+      error.errorCode = errorCode.requestExpired;
       return next(error);
     }
 
@@ -307,7 +308,7 @@ export const login = [
     if (errors.length > 0) {
       const error: any = new Error(errors[0].msg);
       error.status = 400;
-      error.errorCode = "Error_Invalid";
+      error.errorCode = errorCode.invalid;
       return next(error);
     }
 
@@ -326,7 +327,7 @@ export const login = [
         "Your account is temporarily locked.Please contact us",
       );
       error.status = 401;
-      error.errorCode = "Error_Freeze";
+      error.errorCode = errorCode.accountFreeze;
       return next(error);
     }
     const isMatchPassword = await bcrypt.compare(password, user!.password);
@@ -351,7 +352,7 @@ export const login = [
       }
       const error: any = new Error("Password is worng");
       error.status = 401;
-      error.errorCode = "Error_Invalid";
+      error.errorCode = errorCode.invalid;
       return next(error);
     }
     const accessTokenPayload = { id: user!.id };
@@ -359,7 +360,7 @@ export const login = [
     const accessToken = jwt.sign(
       accessTokenPayload,
       process.env.ACCESS_TOKEN_SECRET!,
-      { expiresIn: 60 * 15 },
+      { expiresIn: 60 * 2 }, //2 min in dev but 5 or 15 min in production
     );
     const refreshToken = jwt.sign(
       refreshTokenPayload,
@@ -403,7 +404,7 @@ export const logout = async (
   if (!refreshToken) {
     const error: any = new Error("You are not an authenticated user");
     error.status = 400;
-    error.errorCode = "Error_Unauthenticated";
+    error.errorCode = errorCode.unauthenticated;
     return next(error);
   }
   let decoded;
@@ -415,8 +416,14 @@ export const logout = async (
   } catch (err) {
     const error: any = new Error("You are not an authenticated user");
     error.status = 400;
-    error.errorCode = "Error_Unauthenticated";
+    error.errorCode = errorCode.unauthenticated;
     return next(error);
+  }
+  if (isNaN(decoded.id)) {
+    const err: any = new Error("You are not unauthenticated user");
+    err.status = 401;
+    err.code = errorCode.unauthenticated;
+    return next(err);
   }
 
   const user = await getUserById(decoded.id);
@@ -425,7 +432,7 @@ export const logout = async (
   if (user?.phone !== decoded.phone) {
     const error: any = new Error("You are not an authenticated user");
     error.status = 400;
-    error.errorCode = "Error_Unauthenticated";
+    error.errorCode = errorCode.unauthenticated;
     return next(error);
   }
   const userData = {
